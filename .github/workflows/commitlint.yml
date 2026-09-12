@@ -1,0 +1,33 @@
+name: Commit Lint (reusable)
+
+# Called by a consumer repo's own workflow on pull_request. Lints every
+# commit in the PR against the repo's own commitlint.config.js (see
+# templates/commitlint/commitlint.config.js for the shared default: a
+# Conventional Commits type prefix + a GitHub closing-keyword issue
+# reference). This is the non-bypassable counterpart to the local husky
+# commit-msg hook — it re-checks commits even if a contributor skipped the
+# hook (--no-verify) or never ran `npm install`.
+
+on:
+  workflow_call: {}
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Lint commits
+        uses: wagoid/commitlint-github-action@v6

@@ -1,3 +1,9 @@
+# Node (commitlint/husky tooling)
+node_modules/
+
+# macOS
+.DS_Store
+
 # Local .terraform directories
 .terraform/
 
