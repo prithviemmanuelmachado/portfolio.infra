@@ -1,0 +1,14 @@
+{
+  "name": "portfolio.infra",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared rules and CI infrastructure for portfolio projects",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "husky": "^9.1.6"
+  }
+}

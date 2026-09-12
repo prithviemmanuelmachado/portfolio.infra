@@ -1,0 +1,92 @@
+name: Semantic Version (reusable)
+
+# Called by a consumer repo's own workflow on push to its release branch.
+# Bumps a semver git tag from Conventional Commits, updates CHANGELOG.md,
+# creates a GitHub Release, and outputs the version for the caller to use.
+#
+# This workflow intentionally does NOT touch any in-repo version file
+# (package.json, pyproject.toml, etc.) — that choice is left to the calling
+# repo. Add a follow-up job in the caller that reads `outputs.version` /
+# `outputs.released` and does whatever bump makes sense for that repo.
+
+on:
+  workflow_call:
+    inputs:
+      release-branch:
+        description: Branch that triggers a release when commits land on it.
+        type: string
+        default: main
+      extra-plugins:
+        description: >
+          Extra semantic-release plugins to install beyond the defaults
+          (@semantic-release/changelog, @semantic-release/git), one per
+          line. Use this for repo-specific plugins such as
+          @semantic-release/exec. Plugins already listed as devDependencies
+          in the repo's own package.json don't need to be listed here.
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: Version that was released (e.g. 1.4.0). Empty if no release was made.
+        value: ${{ jobs.release.outputs.version }}
+      released:
+        description: "'true' if a new release was published on this run, 'false' otherwise."
+        value: ${{ jobs.release.outputs.released }}
+      tag:
+        description: Git tag created for the release (e.g. v1.4.0).
+        value: ${{ jobs.release.outputs.tag }}
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semrel.outputs.new_release_version }}
+      released: ${{ steps.semrel.outputs.new_release_published }}
+      tag: ${{ steps.semrel.outputs.new_release_git_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release-branch }}
+
+      - name: Fall back to the shared default release config
+        run: |
+          if [ ! -f .releaserc.json ] && [ ! -f .releaserc.yml ] && [ ! -f .releaserc.yaml ] && \
+             [ ! -f .releaserc.js ] && [ ! -f release.config.js ] && \
+             ! grep -q '"release"[[:space:]]*:' package.json 2>/dev/null; then
+            echo "No semantic-release config found, using portfolio.infra default."
+            curl -fsSL -o .releaserc.json \
+              "https://raw.githubusercontent.com/${{ github.repository_owner }}/portfolio.infra/main/templates/release/.releaserc.json"
+          fi
+
+      - name: Ensure a package.json exists for plugin resolution
+        run: |
+          if [ ! -f package.json ]; then
+            printf '{"name":"%s","version":"0.0.0-managed-by-semantic-release","private":true}' \
+              "$(basename "$GITHUB_REPOSITORY")" > package.json
+          fi
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Release
+        id: semrel
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          branches: ${{ inputs.release-branch }}
+          extra_plugins: |
+            @semantic-release/changelog
+            @semantic-release/git
+            ${{ inputs.extra-plugins }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

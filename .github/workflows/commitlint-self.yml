@@ -1,0 +1,9 @@
+name: Commit Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    uses: prithviemmanuelmachado/portfolio.infra/.github/workflows/commitlint.yml@main
